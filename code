@@ -1,0 +1,426 @@
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
+
+interface Billable {
+    double calculateFee(int hours);
+}
+
+abstract class Vehicle implements Billable {
+    private String plate;
+    private int entryTime;
+
+    public Vehicle(String plate, int entryTime) {
+        this.plate = plate;
+        this.entryTime = entryTime;
+    }
+
+    public String getPlate() {
+        return this.plate;
+    }
+
+    public int getEntryTime() {
+        return this.entryTime;
+    }
+
+    public abstract String getVehicleType();
+
+    public boolean requiresElectricSpace() {
+        return false;
+    }
+}
+
+class StudentVehicle extends Vehicle {
+    public StudentVehicle(String plate, int entryTime) {
+        super(plate, entryTime);
+    }
+
+    @Override
+    public double calculateFee(int hours) {
+        if (hours <= 2) {
+            return 40.00;
+        }
+        return 40.00 + ((hours - 2) * 15.00);
+    }
+
+    @Override
+    public String getVehicleType() {
+        return "Student";
+    }
+}
+
+class FacultyVehicle extends Vehicle {
+    public FacultyVehicle(String plate, int entryTime) {
+        super(plate, entryTime);
+    }
+
+    @Override
+    public double calculateFee(int hours) {
+        if (hours <= 2) {
+            return 30.00;
+        }
+        return 30.00 + ((hours - 2) * 10.00);
+    }
+
+    @Override
+    public String getVehicleType() {
+        return "Faculty";
+    }
+}
+
+class ElectricVehicle extends Vehicle {
+    private static final double CHARGING_SURCHARGE = 100.00;
+
+    public ElectricVehicle(String plate, int entryTime) {
+        super(plate, entryTime);
+    }
+
+    @Override
+    public double calculateFee(int hours) {
+        if (hours <= 2) {
+            return 50.00 + CHARGING_SURCHARGE;
+        }
+        return 50.00 + ((hours - 2) * 20.00) + CHARGING_SURCHARGE;
+    }
+
+    @Override
+    public String getVehicleType() {
+        return "Electric";
+    }
+
+    @Override
+    public boolean requiresElectricSpace() {
+        return true;
+    }
+}
+
+class ParkingSpace {
+    private int spaceNumber;
+    private boolean isElectricSpace;
+    private Vehicle vehicle;
+
+    public ParkingSpace(int spaceNumber, boolean isElectricSpace) {
+        this.spaceNumber = spaceNumber;
+        this.isElectricSpace = isElectricSpace;
+        this.vehicle = null;
+    }
+
+    public int getSpaceNumber() {
+        return this.spaceNumber;
+    }
+
+    public boolean isElectricSpace() {
+        return this.isElectricSpace;
+    }
+
+    public Vehicle getVehicle() {
+        return this.vehicle;
+    }
+
+    public boolean isAvailable() {
+        return this.vehicle == null;
+    }
+    public boolean canAccept(Vehicle candidate) {
+        return isAvailable() && (candidate.requiresElectricSpace() == this.isElectricSpace);
+    }
+
+    public void park(Vehicle vehicle) {
+        this.vehicle = vehicle;
+    }
+
+    public void release() {
+        this.vehicle = null;
+    }
+}
+
+class Payment {
+    private double totalFee;
+    private double cashPaid;
+    private double change;
+
+    public Payment(double totalFee) {
+        this.totalFee = totalFee;
+    }
+
+    public boolean processPayment(double cashPaid) {
+        if (cashPaid >= totalFee) {
+            this.cashPaid = cashPaid;
+            this.change = cashPaid - totalFee;
+            return true;
+        }
+        return false;
+    }
+
+    public double getChange() {
+        return this.change;
+    }
+
+    public double getTotalFee() {
+        return this.totalFee;
+    }
+}
+
+class ParkingTransaction {
+    private static int idCounter = 1001;
+    private int transactionId;
+    private Vehicle vehicle;
+    private ParkingSpace space;
+    private int exitTime;
+    private int hoursParked;
+    private Payment payment;
+    private boolean isActive;
+
+    public ParkingTransaction(Vehicle vehicle, ParkingSpace space) {
+        this.transactionId = idCounter++;
+        this.vehicle = vehicle;
+        this.space = space;
+        this.isActive = true;
+    }
+
+    public int getTransactionId() {
+        return this.transactionId;
+    }
+
+    public Vehicle getVehicle() {
+        return this.vehicle;
+    }
+
+    public ParkingSpace getSpace() {
+        return this.space;
+    }
+
+    public boolean isActive() {
+        return this.isActive;
+    }
+
+    public void completeTransaction(int exitHour) {
+        this.exitTime = exitHour;
+        
+        this.hoursParked = exitHour - vehicle.getEntryTime();
+        
+        if (this.hoursParked <= 0) {
+            this.hoursParked += 24;
+        }
+
+        double fee = vehicle.calculateFee(this.hoursParked);
+        this.payment = new Payment(fee);
+    }
+
+    public Payment getPayment() {
+        return this.payment;
+    }
+
+    public void closeTransaction() {
+        this.isActive = false;
+    }
+
+    public void printReceipt() {
+        System.out.println("\n=====================================");
+        System.out.println(" PARKING RECEIPT");
+        System.out.println("=====================================");
+        System.out.println("Transaction ID: " + this.transactionId);
+        System.out.println("Plate Number: " + vehicle.getPlate());
+        System.out.println("Vehicle Type: " + vehicle.getVehicleType());
+        System.out.println("Entry Hour: " + vehicle.getEntryTime() + ":00");
+        System.out.println("Exit Hour: " + this.exitTime + ":00");
+        System.out.println("Hours Parked: " + this.hoursParked + " Hour(s)");
+        System.out.printf("Total Fee: Php %.2f%n", payment.getTotalFee());
+        System.out.println("=====================================");
+    }
+}
+
+class ParkingLot {
+    private List<ParkingSpace> spaces;
+    private List<ParkingTransaction> transactions;
+
+    public ParkingLot() {
+        this.spaces = new ArrayList<>();
+        this.transactions = new ArrayList<>();
+
+        for (int i = 1; i <= 6; i++) {
+            this.spaces.add(new ParkingSpace(i, false));
+        }
+        for (int i = 7; i <= 10; i++) {
+            this.spaces.add(new ParkingSpace(i, true));
+        }
+    }
+
+    public void displayStatus() {
+        System.out.println("\n--- Current Parking Lot Status ---");
+        for (ParkingSpace space : this.spaces) {
+            String type = space.isElectricSpace() ? "EV Bay" : "Regular";
+            if (space.isAvailable()) {
+                System.out.println("Slot " + space.getSpaceNumber() + " (" + type + "): EMPTY");
+            } else {
+                System.out.println("Slot " + space.getSpaceNumber() + " (" + type
+                        + "): Occupied by [" + space.getVehicle().getPlate() + "]");
+            }
+        }
+    }
+
+    public boolean isPlateAlreadyParked(String plate) {
+        for (ParkingSpace space : spaces) {
+            if (!space.isAvailable() && space.getVehicle().getPlate().equalsIgnoreCase(plate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean checkIn(int spaceNumber, String plate, int entryTime, int vehicleType) {
+        if (spaceNumber < 1 || spaceNumber > spaces.size()) {
+            System.out.println("Error: Invalid slot number!");
+            return false;
+        }
+
+        if (isPlateAlreadyParked(plate)) {
+            System.out.println("Error: Vehicle with plate [" + plate + "] is already parked!");
+            return false;
+        }
+
+        ParkingSpace space = spaces.get(spaceNumber - 1);
+        if (!space.isAvailable()) {
+            System.out.println("Error: That slot is already occupied!");
+            return false;
+        }
+
+        Vehicle vehicle;
+        if (vehicleType == 1) {
+            vehicle = new StudentVehicle(plate, entryTime);
+        } else if (vehicleType == 2) {
+            vehicle = new FacultyVehicle(plate, entryTime);
+        } else if (vehicleType == 3) {
+            vehicle = new ElectricVehicle(plate, entryTime);
+        } else {
+            System.out.println("Error: Invalid vehicle type selection!");
+            return false;
+        }
+
+        if (!space.canAccept(vehicle)) {
+            if (vehicle.requiresElectricSpace()) {
+                System.out.println("Error: Electric vehicles can ONLY park in EV Bays (Slots 7-10)!");
+            } else {
+                System.out.println("Error: Regular vehicles CANNOT park in EV Bays!");
+            }
+            return false;
+        }
+
+        space.park(vehicle);
+        ParkingTransaction transaction = new ParkingTransaction(vehicle, space);
+        transactions.add(transaction);
+
+        System.out.println("Vehicle " + plate + " successfully parked in Slot " + spaceNumber + "!");
+        System.out.println("Generated Transaction ID: " + transaction.getTransactionId());
+        return true;
+    }
+
+    public ParkingTransaction getActiveTransaction(int spaceNumber) {
+        for (ParkingTransaction tx : transactions) {
+            if (tx.isActive() && tx.getSpace().getSpaceNumber() == spaceNumber) {
+                return tx;
+            }
+        }
+        return null;
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        ParkingLot parkingLot = new ParkingLot();
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.println("=== UNIVERSITY PARKING SYSTEM ===");
+
+        while (true) {
+            System.out.println("\n--- MENU ---");
+            System.out.println("1. View Parking Spots");
+            System.out.println("2. Park a Vehicle (Check-In)");
+            System.out.println("3. Remove a Vehicle & Pay (Check-Out)");
+            System.out.println("4. Exit");
+            System.out.print("Choose an option: ");
+
+            if (!scanner.hasNextInt()) {
+                System.out.println("Invalid input! Please enter a number.");
+                scanner.nextLine();
+                continue;
+            }
+
+            int option = scanner.nextInt();
+            scanner.nextLine(); 
+
+            if (option == 1) {
+                parkingLot.displayStatus();
+
+            } else if (option == 2) {
+                System.out.print("Enter Slot Number (1-10): ");
+                int slot = scanner.nextInt();
+                scanner.nextLine();
+
+                System.out.print("Enter License Plate: ");
+                String plate = scanner.nextLine().trim();
+                if (plate.isEmpty()) {
+                    System.out.println("Error: License plate cannot be empty!");
+                    continue;
+                }
+
+                System.out.print("Enter Entry Hour (0-23): ");
+                int entryHour = scanner.nextInt();
+                if (entryHour < 0 || entryHour > 23) {
+                    System.out.println("Error: Entry hour must be between 0 and 23!");
+                    continue;
+                }
+
+                System.out.print("Select Type (1. Student 2. Faculty 3. Electric): ");
+                int type = scanner.nextInt();
+
+                parkingLot.checkIn(slot, plate, entryHour, type);
+
+            } else if (option == 3) {
+                System.out.print("Enter Slot Number leaving (1-10): ");
+                int slot = scanner.nextInt();
+
+                ParkingTransaction transaction = parkingLot.getActiveTransaction(slot);
+                if (transaction == null) {
+                    System.out.println("Error: No active vehicle found in slot " + slot + "!");
+                    continue;
+                }
+
+                System.out.print("Enter Exit Hour (0-23): ");
+                int exitHour = scanner.nextInt();
+                if (exitHour < 0 || exitHour > 23) {
+                    System.out.println("Error: Exit hour must be between 0 and 23!");
+                    continue;
+                }
+
+                transaction.completeTransaction(exitHour);
+                Payment payment = transaction.getPayment();
+
+                transaction.printReceipt();
+
+                double cash = 0;
+                while (!payment.processPayment(cash)) {
+                    System.out.print("Enter Cash Payment Amount: Php ");
+                    cash = scanner.nextDouble();
+
+                    if (!payment.processPayment(cash)) {
+                        System.out.printf("Insufficient cash! You still owe Php %.2f%n", (payment.getTotalFee() - cash));
+                    }
+                }
+
+                System.out.printf("Payment Received! Your change: Php %.2f%n", payment.getChange());
+                System.out.println("Thank you! Drive safely.");
+
+                transaction.closeTransaction();
+                transaction.getSpace().release();
+
+            } else if (option == 4) {
+                System.out.println("Exiting system. Ingat sa biyahe!");
+                break;
+            } else {
+                System.out.println("Invalid option! Please select 1-4.");
+            }
+        }
+
+        scanner.close();
+    }
+}
